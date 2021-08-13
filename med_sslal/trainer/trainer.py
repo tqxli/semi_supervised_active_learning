@@ -13,13 +13,15 @@ class Trainer(BaseTrainer):
     """
     Trainer class
     """
-    def __init__(self, model, criterion, metric_ftns, optimizer, config, device, cycle, 
+    def __init__(self, model, metric_ftns, optimizer, config, device, cycle, 
                  data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None):
-        super().__init__(model, criterion, metric_ftns, optimizer, config)
+
+        super().__init__(model, metric_ftns, optimizer, config)
         self.config = config
         self.device = device
         self.data_loader = data_loader
         self.cycle = cycle
+
         if len_epoch is None:
             # epoch-based training
             self.len_epoch = len(self.data_loader)
@@ -27,19 +29,26 @@ class Trainer(BaseTrainer):
             # iteration-based training
             self.data_loader = inf_loop(data_loader)
             self.len_epoch = len_epoch
+
         self.valid_data_loader = valid_data_loader
         self.do_validation = self.valid_data_loader is not None
+
         self.lr_scheduler = lr_scheduler
-        self.log_step = int(np.sqrt(data_loader.batch_size))
+        self.log_step = 2*data_loader.batch_size
 
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
 
     def _train_epoch(self, epoch):
+        """
+        Train an epoch.
+        """
         self.model.train()
         self.train_metrics.reset()
+
         task_lr_scheduler = None
 
+        # Warming up
         if epoch == 0:
             warmup_factor = 1. / 1000
             warmup_iters = min(1000, len(self.data_loader) - 1)
@@ -50,7 +59,7 @@ class Trainer(BaseTrainer):
             images = list(image.to(self.device) for image in images)
             targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
 
-            outputs, task_loss_dict = self.model(images, targets)
+            _, task_loss_dict = self.model(images, targets)
             
             task_losses = sum(loss for loss in task_loss_dict.values())
             # reduce losses over all GPUs for logging purposes
@@ -67,14 +76,22 @@ class Trainer(BaseTrainer):
             task_losses.backward()
             self.optimizer.step()
 
+            if task_lr_scheduler is not None:
+                task_lr_scheduler.step()
+            
+            if self.lr_scheduler is not None:
+                self.lr_scheduler.step()
+
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             self.train_metrics.update('loss', task_loss_value)
+            self.train_metrics.update('lr', self.optimizer.param_groups[0]["lr"])
 
-            for met in self.metric_ftns:
-                self.train_metrics.update(met.__name__, met(outputs, targets))
+            # DO NOT compute metrics for rcnns, no detections are returned when in train mode
+            # for met in self.metric_ftns:
+            #     self.train_metrics.update(met.__name__, met(outputs, targets))
 
             if batch_idx % self.log_step == 0:
-                self.logger.debug('Cycle:[{}] Epoch: [{}]'.format(self.cycle, epoch), self._progress(batch_idx), task_loss_value)
+                self.logger.debug('Cycle:[{}] Epoch:[{}]'.format(self.cycle, epoch), self._progress(batch_idx), task_loss_value)
                 self.writer.add_image('input', make_grid(images.cpu(), nrow=8, normalize=True))
 
             if batch_idx == self.len_epoch:
@@ -85,9 +102,6 @@ class Trainer(BaseTrainer):
         if self.do_validation:
             val_log = self._valid_epoch(epoch)
             log.update(**{'val_'+k : v for k, v in val_log.items()})
-
-        if task_lr_scheduler is not None:
-            task_lr_scheduler.step()
 
         return log
 
@@ -100,15 +114,17 @@ class Trainer(BaseTrainer):
         """
         self.model.eval()
         self.valid_metrics.reset()
+        
         with torch.no_grad():
             for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                data, target = data.to(self.device), target.to(self.device)
+                data = data.to(self.device)
+                target = [{k: v.to(self.device) for k, v in t.items()} for t in target]
 
-                output = self.model(data)
-                loss = self.criterion(output, target)
+                _, output = self.model(data)
+                output = [{k: v.to(self.device) for k, v in o.items()} for o in output]
 
                 self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
-                self.valid_metrics.update('loss', loss.item())
+                
                 for met in self.metric_ftns:
                     self.valid_metrics.update(met.__name__, met(output, target))
                 self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
@@ -146,10 +162,46 @@ class Trainer(BaseTrainer):
             'monitor_best': self.mnt_best,
             'config': self.config
         }
+
         filename = str(self.checkpoint_dir / 'checkpoint-cycle{}-epoch{}.pth'.format(self.cycle, epoch))
         torch.save(state, filename)
         self.logger.info("Saving checkpoint: {} ...".format(filename))
         if save_best:
-            best_path = str(self.checkpoint_dir / 'model_best_cycle{}.pth'.format(self.cycle))
+            best_path = str(self.checkpoint_dir / 'model_cycle{}_best.pth'.format(self.cycle))
             torch.save(state, best_path)
-            self.logger.info("Saving current best: model_best.pth ...")
+            self.logger.info("Saving cycle{} current best: model_best.pth ...".format(self.cycle))
+
+    def _resume_checkpoint(self, resume_path):
+        """
+        Resume from saved checkpoints
+
+        :param resume_path: Checkpoint path to be resumed
+        """
+        resume_path = str(resume_path)
+        self.logger.info("Loading checkpoint: {} ...".format(resume_path))
+        checkpoint = torch.load(resume_path)
+        self.start_epoch = checkpoint['epoch'] + 1
+        self.mnt_best = checkpoint['monitor_best']
+
+        # check AL settings
+        if checkpoint['config']['al_settings'] != self.config['al_settings']:
+            self.logger.warning("Warning: Active learning configuration given in config file is different from that of "
+                                "checkpoint")
+
+        if checkpoint['cycle'] != self.cycle:
+            self.logger.warning("Warning: Active learning is in different stages.") 
+
+        # load architecture params from checkpoint.
+        if checkpoint['config']['arch'] != self.config['arch']:
+            self.logger.warning("Warning: Architecture configuration given in config file is different from that of "
+                                "checkpoint. This may yield an exception while state_dict is being loaded.")
+        self.model.load_state_dict(checkpoint['state_dict'])
+
+        # load optimizer state from checkpoint only when optimizer type is not changed.
+        if checkpoint['config']['optimizer']['type'] != self.config['optimizer']['type']:
+            self.logger.warning("Warning: Optimizer type given in config file is different from that of checkpoint. "
+                                "Optimizer parameters not being resumed.")
+        else:
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+
+        self.logger.info("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))

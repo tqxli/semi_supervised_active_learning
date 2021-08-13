@@ -4,10 +4,9 @@ import torch
 import numpy as np
 import data.dataset as module_data
 from al import al_helpers
-#import loss as module_loss
 import evals as module_metric
 import model.model as module_arch
-from parse_config import ConfigParser
+from parse_config import ConfigParser, _update_config
 from trainer import Trainer
 from utils import prepare_device, setup_random_seed, seed_worker, collate_fn, evaluate
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -28,6 +27,8 @@ def main(config):
     # prepare an active learning helper, split labeled/unlabeled
     al_helper = config.init_obj('al_settings', al_helpers, num_workers=config['n_workers'])
     labeled_set, unlabeled_set = al_helper._split_labeled_unlabeled(len(train_dataset))
+    config = _update_config(config, modification={'labeled set': labeled_set, 
+                                                  'unlabeled_set': unlabeled_set})
 
     # build model architecture, then print to console
     model = config.init_obj('arch', module_arch)
@@ -44,8 +45,12 @@ def main(config):
 
     # begin AL
     for cycle in range(1, config['al_settings']['num_cycles']+1):
+        config = _update_config(config, modification={'current_al_cycle': cycle})
+
         # update labeled/unlabeled distribution using active learning
         labeled_set, unlabeled_set = al_helper.update(model, train_dataset, labeled_set, unlabeled_set, device)
+        config = _update_config(config, modification={'labeled set': labeled_set, 
+                                                      'unlabeled_set': unlabeled_set})
 
         # prepare dataloader for training
         train_sampler = SubsetRandomSampler(labeled_set)
@@ -66,7 +71,10 @@ def main(config):
         lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
 
         # start training
-        trainer = Trainer(model, metrics, optimizer, cycle,
+        trainer = Trainer(model, 
+                        metric_fcns=metrics, 
+                        optimizer=optimizer, 
+                        cycle=cycle,
                         config=config,
                         device=device,
                         data_loader=train_data_loader,
@@ -76,13 +84,12 @@ def main(config):
         trainer.train()
 
         # test at the end of each cycle
-        # FIX only COCO now
+        # FIX: only COCO evaluation now, should enable more
         best_checkpoint_path = str(config["trainer"]["save_dir"] / 'model_best_cycle{}.pth'.format(cycle))
         model.load_state_dict(torch.load(best_checkpoint_path)['state_dict'])
         evaluator = evaluate(model, test_data_loader, device=device)
         coco_stats = evaluator.coco_eval['bbox'].stats
         logger.info("COCO mAP evaluation statistics on the test set:\n{}".format(coco_stats))
-
 
 
 if __name__ == '__main__':
