@@ -24,7 +24,8 @@ class DeepLesion(nn.Module):
 
         self.dataset = DeepLesionDataset(root, self.transforms, dataset_type, lesion_type)
         self.dataset_noaug = DeepLesionDataset(root, None, dataset_type, lesion_type) 
-        self.n_samples= len(self.dataset)
+        self.n_samples = len(self.dataset)
+        self.num_workers = num_workers
 
         self.validation_split = validation_split
         self.train_idx, self.val_idx, self.test_idx = self._split_train_val_test(self.validation_split)
@@ -37,9 +38,9 @@ class DeepLesion(nn.Module):
         #np.random.seed(0)
         np.random.shuffle(idx_full)
 
-        if isinstance(self.split, int):
-            assert self.split > 0
-            assert self.split < self.n_samples, "validation set size is configured to be larger than entire dataset."
+        if isinstance(split, int):
+            assert split > 0
+            assert split < self.n_samples, "validation set size is configured to be larger than entire dataset."
             len_train = self.sample_num - split
         else:
             len_train = int(self.n_samples * (1-split))

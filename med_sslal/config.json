@@ -10,14 +10,15 @@
         "args": {
             "backbone_name": "resnet50",
             "fpn": true,
-            "pretrained": true
+            "pretrained": true,
+            "num_classes": 2
         }
     },
 
     "dataset": {
         "type": "DeepLesion",
         "args": {
-            "root": "drive/MyDrive/data/DeepLesion",
+            "root": "/content/drive/MyDrive/data/DeepLesion",
             "validation_split": 0.2,
             "dataset_type": "non-specified",
             "lesion_type": "lung"
@@ -56,7 +57,7 @@
 
     "trainer": {
         "epochs": 50,
-        "save_dir": "drive/MyDrive/exp_results",
+        "save_dir": "/content/drive/MyDrive/exp_results",
         "save_period": 10,
         "verbosity": 2,
         
