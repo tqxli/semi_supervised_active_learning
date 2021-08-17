@@ -99,10 +99,10 @@ class ActiveLearningHelper:
     
     def _get_dataloaders(self, train_dataset, labeled_set, unlabeled_set):
         labeled_dataloader = DataLoader(train_dataset, batch_size=1, sampler=SubsetSequentialSampler(labeled_set), 
-                                num_workers=self.num_workers, pin_memory=True, collate_fn=collate_fn)
+                                num_workers=self.num_workers, collate_fn=collate_fn)
         
         unlabeled_dataloader = DataLoader(train_dataset, batch_size=1, sampler=SubsetSequentialSampler(unlabeled_set),
-                                  num_workers=self.num_workers, pin_memory=True, collate_fn=collate_fn)
+                                  num_workers=self.num_workers, collate_fn=collate_fn)
 
         return labeled_dataloader, unlabeled_dataloader
     
