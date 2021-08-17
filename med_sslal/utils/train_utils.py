@@ -29,13 +29,17 @@ def save_labeled_unlabeled(config, cycle, labeled_set, unlabeled_set):
     with open(os.path.join(config.save_dir, 'labeled_unlabeled_cycle{}'.format(cycle)), 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-def get_train_data_loader(config, labeled_set, train_dataset, pseudo_dataset):
+def get_train_data_loader(config, logger, labeled_set, train_dataset, pseudo_dataset):
+    logger.info('Current train dataset size: {}'.format(len(train_dataset)))
     if len(pseudo_dataset) >= 0:
+        logger.info('{} pseudolabeled samples are added.'.format(len(pseudo_dataset)))
         concat_train_dataset = torch.utils.data.ConcatDataset([train_dataset, pseudo_dataset])
         train_sampler = SubsetRandomSampler(list(set(range(len(train_dataset), len(concat_train_dataset))) | set(labeled_set)))
         train_dataset = concat_train_dataset
+        logger.info('Current train dataset size: {}'.format(len(train_dataset)))
     else: 
         train_sampler = SubsetRandomSampler(labeled_set)
+    
 
     train_batch_sampler = torch.utils.data.BatchSampler(train_sampler, config['batch_size'], drop_last=True)
 

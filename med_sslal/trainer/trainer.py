@@ -65,8 +65,7 @@ class Trainer(BaseTrainer):
             task_losses = sum(loss for loss in task_loss_dict.values())
             # reduce losses over all GPUs for logging purposes
             task_loss_dict_reduced = reduce_dict(task_loss_dict)
-            task_losses_reduced = sum(loss for loss in task_loss_dict_reduced.values())
-            task_loss_value = task_losses_reduced.item()
+            task_loss_value = sum(loss for loss in task_loss_dict_reduced.values())
             
             if not math.isfinite(task_loss_value):
                 print("Loss is {}, stopping training".format(task_loss_value))
@@ -92,7 +91,7 @@ class Trainer(BaseTrainer):
             #     self.train_metrics.update(met.__name__, met(outputs, targets))
 
             if batch_idx % self.log_step == 0:
-                self.logger.debug('Cycle:[{}] Epoch:[{}]'.format(self.cycle, epoch), self._progress(batch_idx), task_loss_value)
+                self.logger.debug('Cycle:[{0}] Epoch:[{1}]'.format(self.cycle, epoch)+self._progress(batch_idx), task_loss_value)
                 # make grid takes an array of 3d tensors and make it 4d
                 #self.writer.add_image('input', make_grid(np.array(images)).cpu(), nrow=8, normalize=True)
 
@@ -165,7 +164,7 @@ class Trainer(BaseTrainer):
             'config': self.config
         }
 
-        filename = str(self.checkpoint_dir / 'checkpoint-cycle{}-epoch{}.pth'.format(self.cycle, epoch))
+        filename = str(self.checkpoint_dir / 'checkpoint-cycle{0}-epoch{1}.pth'.format(self.cycle, epoch))
         torch.save(state, filename)
         self.logger.info("Saving checkpoint: {} ...".format(filename))
         if save_best:

@@ -58,10 +58,11 @@ def main(config):
         save_labeled_unlabeled(config, cycle, labeled_set, unlabeled_set)
 
         # get pseudolabels (if requested)
-        pseudo_dataset = module_data.PseudoDataset(pseudo_flags=pseudoflags, pseudolabels=pseudolabels)
+        pseudo_dataset = module_data.PseudoDataset(pseudoflags=pseudoflags, pseudolabels=pseudolabels)
 
         # prepare dataloader for training
         train_data_loader = get_train_data_loader(config=config, 
+                                                  logger=logger,
                                                   labeled_set=labeled_set, 
                                                   train_dataset=train_dataset,
                                                   pseudo_dataset=pseudo_dataset)
