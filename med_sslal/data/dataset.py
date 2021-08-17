@@ -30,6 +30,7 @@ class DeepLesion(nn.Module):
         self.validation_split = validation_split
         self.train_idx, self.val_idx, self.test_idx = self._split_train_val_test(self.validation_split)
 
+
     def _split_train_val_test(self, split):
         if split == 0.0:
             return None, None
@@ -63,3 +64,14 @@ class DeepLesion(nn.Module):
 
     def get_train_dataset(self):
         return torch.utils.data.Subset(self.dataset, self.train_idx)
+
+
+class PseudoDataset(torch.utils.data.Dataset):
+    def __init__(self, pseudoflags, pseudolabels):
+        self.pseudolabels = [label for label, flag in zip(pseudolabels, pseudoflags) if flag == True]
+
+    def __getitem__(self, idx):
+        return self.pseudolabels[idx]
+
+    def __len__(self):
+        return len(self.pseudolabels)

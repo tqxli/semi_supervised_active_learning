@@ -66,6 +66,6 @@ def calcu_iou(A, B):
 def feature_pooling(features):
     adaptive_pooling = nn.AdaptiveAvgPool2d(1)
     output = adaptive_pooling(features['pool'])
-    output = output.view(output.size(0), -1) 
+    output = output.view(output.size(0), -1)
 
-    return output
+    return output.squeeze(0).detach().cpu().numpy()

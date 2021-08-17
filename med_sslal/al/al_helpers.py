@@ -10,14 +10,16 @@ from . import al_criteria
 __all_unc_supported__ = ['prediction_uncertainty', 'localization_tightness']
 __all_rep_supported__ = ['representativeness']
 __all_div_supported__ = ['k_means_diversity']
-__all_criteria_supported__ = __all_unc_supported__ + __all_rep_supported__ + __all_div_supported__
+#__all_criteria_supported__ = __all_unc_supported__ + __all_rep_supported__ + __all_div_supported__
+__all_ssl_supported__ = ['pseudolabel']
 
 class ActiveLearningHelper:
     """
     Helper class for performing active learning.
     """
     def __init__(self, init_num, budget_num, num_workers=2, 
-                 al_criterion=['localization_tightness', 'k_means_diversity']):
+                 al_criterion=['localization_tightness', 'k_means_diversity'],
+                 include_pseudolabels=False):
         self.init_num = init_num
         self.budget_num = budget_num
         self.num_workers = num_workers
@@ -35,6 +37,9 @@ class ActiveLearningHelper:
             assert self.criterion_list[1] in __all_rep_supported__+__all_div_supported__, \
                 "The secondary criterion must be a supported diversity or representativeness criterion." 
             self.secondary_criterion = getattr(al_criteria, self.criterion_list[1])
+        
+        # check if a semi-supervised method is specified
+        self.include_pseudolabels = include_pseudolabels
 
 
     def update(self, model, train_dataset, labeled_set, unlabeled_set, device):
@@ -45,10 +50,10 @@ class ActiveLearningHelper:
         """
         labeled_dataloader, unlabeled_dataloader = self._get_dataloaders(train_dataset, labeled_set, unlabeled_set)
 
-        uncertainties, features = [], []
+        uncertainties, features, pseudolabels, pseudoflags = [], [], [], []
         model.eval()
         with torch.no_grad():
-            for images, _ in tqdm(labeled_dataloader):
+            for idx, (images, _) in enumerate(tqdm(labeled_dataloader)):
                 images = list(image.to(device) for image in images)
                 torch.cuda.synchronize()
 
@@ -56,6 +61,9 @@ class ActiveLearningHelper:
                     feature, output = model([image]) 
                     uncertainties.append(self.unc_criterion(output))
                     features.append(al_criteria.feature_pooling(feature))
+                    if self.include_pseudolabels:
+                        ps_target = self._get_pseudolabel(output, idx, pseudoflags, threshold=0.8)
+                        pseudolabels.append((image.cpu().numpy(), ps_target))
         
         # rank unlabeled samples by their uncertainty
         unc_ranking = np.argsort(uncertainties)
@@ -73,7 +81,14 @@ class ActiveLearningHelper:
         labeled_set += list(np.array(unlabeled_set)[to_be_added])
         unlabeled_set = list(set(unlabeled_set) - set(to_be_added)) 
 
-        return labeled_set, unlabeled_set
+        # reorder pseudolabels 
+        # since we only pseudolabel those remaining samples w/o groundtruth
+        if self.include_pseudolabels:
+            pseudo_set = list(set(unc_ranking) - set(to_be_added))
+            pseudolabels = [pseudolabels[i] for i in pseudo_set]
+            pseudoflags = [pseudoflags[i] for i in pseudo_set]
+
+        return labeled_set, unlabeled_set, pseudolabels, pseudoflags
                     
         
     def _split_labeled_unlabeled(self, n_samples):
@@ -90,6 +105,35 @@ class ActiveLearningHelper:
                                   num_workers=self.num_workers, pin_memory=True, collate_fn=collate_fn)
 
         return labeled_dataloader, unlabeled_dataloader
+    
+    def _get_pseudolabel(self, output, idx, pseudoflags, threshold=0.8):
+        target = {}
+        
+        above_thres = output[0]['scores'].detach().cpu().numpy() >= threshold
+        if np.count_nonzero(above_thres) > 0:
+            pseudoflags.append(True)
+            # only select the top prediction
+            boxes = output[0]['boxes'].detach().cpu().numpy()[above_thres][0]
+            labels = output[0]['labels'].detach().cpu()[above_thres][0]
+            area = (boxes[3] - boxes[1]) * (boxes[2] - boxes[0])
+        else:
+            pseudoflags.append(False)
+            return target
+
+        boxes = torch.as_tensor([boxes], dtype=torch.float32)
+        labels = torch.tensor([labels], dtype=torch.int64)
+        area = torch.tensor([area])        
+        image_id = torch.tensor([idx])
+        iscrowd = torch.zeros((1,), dtype=torch.int64)
+
+        target["boxes"] = boxes
+        target["labels"] = labels
+        target["image_id"] = image_id
+        target["area"] = area
+        target["iscrowd"] = iscrowd
+
+        return target
+
 
 
     
