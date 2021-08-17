@@ -38,25 +38,25 @@ def sensitivity_k_fps(outputs, targets, k=4):
     """
     Compute detection sensitivity with k FPs per image.
     """
-    cpu_device = torch.device("cpu")
+    #cpu_device = torch.device("cpu")
     assert len(outputs) == len(targets)
     with torch.no_grad():
         sens = []
         for output, target in zip(outputs, targets):
-            target = [{k: v.to(cpu_device) for k, v in t.items()} for t in target]
-            output = [{k: v.to(cpu_device) for k, v in o.items()} for o in output]
+            #target = [{k: v.to(cpu_device) for k, v in t.items()} for t in target]
+            #output = [{k: v.to(cpu_device) for k, v in o.items()} for o in output]
 
             # omit images with no target
-            total_POS = len(target[0]['boxes'])            
+            total_POS = len(target['boxes'])            
             if total_POS == 0:
                 continue
 
             TP, FP = 0, 0
             matches = [False] * total_POS
-            for pred_box in output[0]['boxes']:
+            for pred_box in output['boxes']:
                 # For each prediction, check whether it can match any of the ground truth box
-                for idx, ground_truth_box in enumerate(target[0]['boxes']):
-                    iou = calcu_iou(pred_box.numpy(), ground_truth_box.numpy())
+                for idx, ground_truth_box in enumerate(target['boxes']):
+                    iou = calcu_iou(pred_box.cpu().numpy(), ground_truth_box.cpu().numpy())
                     # if iou exceeds the threshold 0.5, consider it as a POSITIVE
                     if iou > 0.5:
                         TP += 1
