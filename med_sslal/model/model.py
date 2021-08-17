@@ -10,5 +10,5 @@ class FasterRCNN(BaseModel):
 
         self.model = FasterRCNN_custom(backbone=backbone, num_classes=num_classes)
 
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, images, targets=None):
+        return self.model(images, targets)
