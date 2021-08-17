@@ -34,9 +34,10 @@ class Trainer(BaseTrainer):
         self.do_validation = self.valid_data_loader is not None
 
         self.lr_scheduler = lr_scheduler
-        self.log_step = 2*data_loader.batch_size
+        #self.log_step = 2*data_loader.batch_size
+        self.log_step = 50
 
-        self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
+        self.train_metrics = MetricTracker('loss', 'lr', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
 
     def _train_epoch(self, epoch):
@@ -84,7 +85,7 @@ class Trainer(BaseTrainer):
 
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             self.train_metrics.update('loss', task_loss_value)
-            self.train_metrics.update('lr', self.optimizer.param_groups[0]["lr"])
+            self.train_metrics.update('lr', self.optimizer.param_groups[0]['lr'])
 
             # DO NOT compute metrics for rcnns, no detections are returned when in train mode
             # for met in self.metric_ftns:
@@ -92,7 +93,8 @@ class Trainer(BaseTrainer):
 
             if batch_idx % self.log_step == 0:
                 self.logger.debug('Cycle:[{}] Epoch:[{}]'.format(self.cycle, epoch), self._progress(batch_idx), task_loss_value)
-                self.writer.add_image('input', make_grid(images.cpu(), nrow=8, normalize=True))
+                # make grid takes an array of 3d tensors and make it 4d
+                #self.writer.add_image('input', make_grid(np.array(images)).cpu(), nrow=8, normalize=True)
 
             if batch_idx == self.len_epoch:
                 break
@@ -116,18 +118,18 @@ class Trainer(BaseTrainer):
         self.valid_metrics.reset()
         
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                data = data.to(self.device)
-                target = [{k: v.to(self.device) for k, v in t.items()} for t in target]
+            for batch_idx, (images, targets) in enumerate(self.valid_data_loader):
+                images = list(image.to(self.device) for image in images)
+                targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
 
-                _, output = self.model(data)
-                output = [{k: v.to(self.device) for k, v in o.items()} for o in output]
+                _, outputs = self.model(images)
+                outputs = [{k: v.to(self.device) for k, v in o.items()} for o in outputs]
 
                 self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
                 
                 for met in self.metric_ftns:
-                    self.valid_metrics.update(met.__name__, met(output, target))
-                self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
+                    self.valid_metrics.update(met.__name__, met(outputs, targets))
+                #self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
 
         # add histogram of model parameters to the tensorboard
         for name, p in self.model.named_parameters():
