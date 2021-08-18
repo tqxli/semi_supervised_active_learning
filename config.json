@@ -19,7 +19,7 @@
         "type": "DeepLesion",
         "args": {
             "root": "/content/drive/MyDrive/data/DeepLesion",
-            "validation_split": 0.2,
+            "eval_split": 0.2,
             "dataset_type": "non-specified",
             "lesion_type": "lung"
         }

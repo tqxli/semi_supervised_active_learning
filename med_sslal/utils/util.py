@@ -3,7 +3,13 @@ import torch
 import pandas as pd
 from pathlib import Path
 from itertools import repeat
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict, deque
+import datetime
+import errno
+import os
+import time
+
+import torch.distributed as dist
 
 
 def ensure_dir(dirname):
@@ -65,16 +71,6 @@ class MetricTracker:
 
     def result(self):
         return dict(self._data.average)
-
-
-from collections import defaultdict, deque
-import datetime
-import errno
-import os
-import time
-
-import torch.distributed as dist
-
 
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
