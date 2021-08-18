@@ -1,6 +1,6 @@
 from .coco_utils import get_coco_api_from_dataset
 from .coco_eval import CocoEvaluator
-from ..utils import MetricLogger
+from .util import MetricLogger
 import time
 import torch
 import torchvision

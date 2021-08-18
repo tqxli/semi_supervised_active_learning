@@ -1,4 +1,3 @@
-git+https://github.com/albumentations-team/albumentations
 torch>=1.1
 torchvision
 numpy

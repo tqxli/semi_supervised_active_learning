@@ -2,14 +2,16 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from ..utils import collate_fn
+#from base import BaseDataLoader
+from .utils import collate_fn
 from .DeepLesion import DeepLesionDataset
+#from sampler import SubsetSequentialSampler
 
 import albumentations as A
 import numpy as np
 
 class DeepLesion(nn.Module):
-    def __init__(self, root, eval_split, num_workers=2, 
+    def __init__(self, root, validation_split=0.2, num_workers=2, 
                  dataset_type='non-specified', lesion_type='lung'):
         self.transforms = A.Compose([
                             A.ShiftScaleRotate(p=0.5),
@@ -25,8 +27,8 @@ class DeepLesion(nn.Module):
         self.n_samples = len(self.dataset)
         self.num_workers = num_workers
 
-        self.eval_split = eval_split
-        self.train_idx, self.val_idx, self.test_idx = self._split_train_val_test(self.eval_split)
+        self.validation_split = validation_split
+        self.train_idx, self.val_idx, self.test_idx = self._split_train_val_test(self.validation_split)
 
 
     def _split_train_val_test(self, split):

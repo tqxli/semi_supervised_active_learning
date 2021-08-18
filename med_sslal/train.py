@@ -1,17 +1,16 @@
 import argparse
 import collections
 import torch
+from torch.utils.data.sampler import SubsetRandomSampler
 
-import med_sslal.data.dataset as module_data
-import med_sslal.eval as module_metric
-from med_sslal.eval import evaluate
+import data.dataset as module_data
+import evals as module_metric
+import model.model as module_arch
+from al import al_helpers
+from parse_config import ConfigParser
+from trainer import Trainer
 
-import med_sslal.model.model as module_arch
-from med_sslal.al import al_helpers
-from med_sslal.config import ConfigParser
-from med_sslal.trainer import Trainer
-
-from med_sslal.utils import prepare_device, setup_random_seed, save_labeled_unlabeled, get_train_data_loader
+from utils import prepare_device, setup_random_seed, evaluate, save_labeled_unlabeled, get_train_data_loader
 
 
 def main(config):
