@@ -1,5 +1,4 @@
-from model.backbone import build_backbones
-from base import BaseModel
+from ..base import BaseModel
 from .detectors import FasterRCNN_custom
 from .backbone import build_backbones
 

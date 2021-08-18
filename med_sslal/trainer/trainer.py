@@ -1,9 +1,8 @@
-import numpy as np
 import sys, math
 import torch
 from torchvision.utils import make_grid
-from base import BaseTrainer
-from utils import inf_loop, MetricTracker, SmoothedValue, MetricLogger, warmup_lr_scheduler, reduce_dict
+from ..base import BaseTrainer
+from ..utils import inf_loop, MetricTracker, warmup_lr_scheduler, reduce_dict
 from functools import partial
 from tqdm import tqdm
 tqdm = partial(tqdm, position=0, leave=True)
