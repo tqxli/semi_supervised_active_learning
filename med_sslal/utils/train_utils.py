@@ -29,6 +29,11 @@ def save_labeled_unlabeled(config, cycle, labeled_set, unlabeled_set):
     with open(os.path.join(config.save_dir, 'labeled_unlabeled_cycle{}'.format(cycle)), 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+def load_labeled_unlabeled(config):
+    with open(os.path.join(config.save_dir, 'labeled_unlabeled_cycle{}'.format(config.cycle)), 'rb') as handle:
+        data = pickle.load(handle)
+    return data['labeled_set', 'unlabeled_set']
+
 def get_train_data_loader(config, logger, labeled_set, train_dataset, pseudo_dataset=None):
     logger.info('Current train dataset size: {}'.format(len(train_dataset)))
     if pseudo_dataset is None or len(pseudo_dataset) == 0: 
@@ -54,8 +59,8 @@ def get_train_data_loader(config, logger, labeled_set, train_dataset, pseudo_dat
     return train_data_loader
 
 def get_base_model_path(config):
-    path = str(config.save_dir / 'base_models' / '{}_{}_{}_{}'.format(config['arch']['type'], 
-                                                                    config['dataset']['type'], 
-                                                                    config['al_settings']['args']['init_num'],
-                                                                    config['seed']))
+    path = str(str(config.save_dir).rsplit('/', 1)[:-1][0]+'/'+'base_models/'+'{}_{}_{}_{}'.format(config['arch']['type'], 
+                                                                                                   config['dataset']['type'], 
+                                                                                                   config['al_settings']['args']['init_num'],
+                                                                                                   config['seed']))
     return path

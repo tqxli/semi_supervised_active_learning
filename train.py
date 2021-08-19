@@ -1,5 +1,6 @@
 import argparse
 import collections
+from json import load
 import torch
 
 import med_sslal.data.dataset as module_data
@@ -11,7 +12,7 @@ from med_sslal.al import al_helpers
 from med_sslal.config import ConfigParser
 from med_sslal.trainer import Trainer
 
-from med_sslal.utils import prepare_device, setup_random_seed, save_labeled_unlabeled, get_train_data_loader, get_base_model_path
+from med_sslal.utils import prepare_device, setup_random_seed, save_labeled_unlabeled, load_labeled_unlabeled, get_train_data_loader, get_base_model_path
 
 
 def main(config):
@@ -27,12 +28,10 @@ def main(config):
     val_data_loader, test_data_loader = dataset.get_val_test_dataloaders() # no augmentations applied
     train_dataset = dataset.get_train_dataset()
 
-    # prepare an active learning helper, split labeled/unlabeled
+    # prepare an active learning helper
     al_helper = config.init_obj('al_settings', al_helpers, 
                                 num_workers=config['n_workers'],
                                 include_pseudolabels=config['ssl_settings']['include_pseudolabels'])
-    labeled_set, unlabeled_set = al_helper._split_labeled_unlabeled(len(train_dataset))
-    save_labeled_unlabeled(config, 0, labeled_set, unlabeled_set)
 
     # build model architecture, then print to console
     model = config.init_obj('arch', module_arch)
@@ -48,13 +47,16 @@ def main(config):
     if config.resume is not None:
         logger.info('Resuming from checkpoint: {} ...'.format(config.resume))
         checkpoint = torch.load(config.resume)
-        start_cycle = checkpoint['cycle']
-    # start from scratch
+        start_cycle = checkpoint['cycle']+1
+        labeled_set, unlabeled_set = load_labeled_unlabeled(config)
+    # or start a new experiment
     else:
-        logger.info('Loading base model checkpoint:')
-        base_model_path = get_base_model_path(config)
+        logger.info('Loading base model checkpoint {} ...'.format(get_base_model_path(config)))
+        base_model_path = '{}-best.pth'.format(get_base_model_path(config))
         checkpoint = torch.load(base_model_path)
-        start_cycle = 1
+        start_cycle = 1    
+        labeled_set, unlabeled_set = al_helper._split_labeled_unlabeled(len(train_dataset))
+        save_labeled_unlabeled(config, 0, labeled_set, unlabeled_set)
 
     state_dict = checkpoint['state_dict']
     model.load_state_dict(state_dict)
@@ -103,7 +105,7 @@ def main(config):
 
         # test at the end of each AL cycle
         # FIX: only COCO evaluation now, should enable more
-        best_checkpoint_path = str(config.save_dir / 'model_best_cycle{}.pth'.format(cycle))
+        best_checkpoint_path = str(config.save_dir / 'checkpoint-cycle{}-best.pth'.format(cycle))
         model.load_state_dict(torch.load(best_checkpoint_path)['state_dict'])
         evaluator = evaluate(model, test_data_loader, device=device)
         coco_stats = evaluator.coco_eval['bbox'].stats

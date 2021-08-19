@@ -86,7 +86,10 @@ class Trainer(BaseTrainer):
             self.train_metrics.update('lr', self.optimizer.param_groups[0]['lr'])
 
             if batch_idx % self.log_step == 0:
-                self.logger.debug('Cycle:[{}] Epoch:[{}] {} Loss: {:.6f}'.format(self.cycle, epoch, self._progress(batch_idx), task_loss_value))
+                self.logger.debug('Cycle:[{}] Epoch:[{}] {} Loss: {:.6f}'.format(self.cycle, 
+                                                                                 epoch, 
+                                                                                 self._progress(batch_idx), 
+                                                                                 task_loss_value))
                 # make grid takes an array of 3d tensors and make it 4d
                 #self.writer.add_image('input', make_grid(np.array(images)).cpu(), nrow=8, normalize=True)
 
@@ -131,7 +134,7 @@ class Trainer(BaseTrainer):
         return self.valid_metrics.result()
 
     def _progress(self, batch_idx):
-        base = '[{}/{} ({:.0f%})]'
+        base = '[{}/{} ({:.0f}%)]'
         if hasattr(self.data_loader, 'n_samples'):
             current = batch_idx * self.data_loader.batch_size
             total = self.data_loader.n_samples
@@ -159,13 +162,13 @@ class Trainer(BaseTrainer):
             'config': self.config
         }
 
-        filename = str(self.checkpoint_dir / 'checkpoint-cycle{0}-epoch{1}.pth'.format(self.cycle, epoch))
+        filename = str(self.checkpoint_dir / 'checkpoint-cycle{}-epoch{}.pth'.format(self.cycle, epoch))
         torch.save(state, filename)
         self.logger.info("Saving checkpoint: {} ...".format(filename))
         if save_best:
-            best_path = str(self.checkpoint_dir / 'model_cycle{}_best.pth'.format(self.cycle))
+            best_path = str(self.checkpoint_dir / 'checkpoint-cycle{}-best.pth'.format(self.cycle))
             torch.save(state, best_path)
-            self.logger.info("Saving cycle{} current best: model_best.pth ...".format(self.cycle))
+            self.logger.info("Saving cycle{} current best: {} ...".format(self.cycle, best_path))
 
     def _resume_checkpoint(self, resume_path):
         """
@@ -228,6 +231,6 @@ class BaseModelTrainer(Trainer):
         torch.save(state, filename)
         self.logger.info("Saving checkpoint: {} ...".format(filename))
         if save_best:
-            best_path = str(self.checkpoint_dir / 'model_cycle{}_best.pth'.format(self.cycle))
+            best_path = filename + '-best.pth'
             torch.save(state, best_path)
-            self.logger.info("Saving cycle{} current best: model_best.pth ...".format(self.cycle)) 
+            self.logger.info("Saving current best: {} ...".format(best_path)) 

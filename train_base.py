@@ -11,7 +11,7 @@ from med_sslal.al import al_helpers
 from med_sslal.config import ConfigParser
 from med_sslal.trainer import BaseModelTrainer
 
-from med_sslal.utils import prepare_device, setup_random_seed, save_labeled_unlabeled, get_train_data_loader
+from med_sslal.utils import prepare_device, setup_random_seed, save_labeled_unlabeled, get_train_data_loader, get_base_model_path
 
 
 def main(config):
@@ -72,7 +72,7 @@ def main(config):
 
     # test at the end of each AL cycle
     # FIX: only COCO evaluation now, should enable more
-    best_checkpoint_path = str(config.save_dir / 'model_best_cycle{}.pth'.format(0))
+    best_checkpoint_path = '{}-best.pth'.format(get_base_model_path(config))
     model.load_state_dict(torch.load(best_checkpoint_path)['state_dict'])
     evaluator = evaluate(model, test_data_loader, device=device)
     coco_stats = evaluator.coco_eval['bbox'].stats
