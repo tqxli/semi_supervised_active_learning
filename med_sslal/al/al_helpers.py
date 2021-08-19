@@ -77,13 +77,13 @@ class ActiveLearningHelper:
         
         # update labeled and unlabeled set, respectively
         to_be_added = np.array(to_be_added)
-        labeled_set += list(np.array(unlabeled_set)[to_be_added])
+        labeled_set = list(set(labeled_set) | set(to_be_added))
         unlabeled_set = list(set(unlabeled_set) - set(to_be_added)) 
 
         # reorder pseudolabels 
         # since we only pseudolabel those remaining samples w/o groundtruth
         if self.include_pseudolabels:
-            pseudo_set = list(set(unc_ranking) - set(to_be_added))
+            pseudo_set = unlabeled_set
             pseudolabels = [pseudolabels[i] for i in pseudo_set]
             pseudoflags = [pseudoflags[i] for i in pseudo_set]
 
