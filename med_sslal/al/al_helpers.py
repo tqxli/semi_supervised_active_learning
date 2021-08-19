@@ -52,7 +52,7 @@ class ActiveLearningHelper:
         uncertainties, features, pseudolabels, pseudoflags = [], [], [], []
         model.eval()
         with torch.no_grad():
-            for idx, (images, _) in enumerate(tqdm(labeled_dataloader)):
+            for idx, (images, _) in enumerate(tqdm(unlabeled_dataloader)):
                 images = list(image.to(device) for image in images)
                 torch.cuda.synchronize()
 
@@ -62,14 +62,15 @@ class ActiveLearningHelper:
                     features.append(al_criteria.feature_pooling(feature))
                     if self.include_pseudolabels:
                         ps_target = self._get_pseudolabel(output, idx, pseudoflags, threshold=0.8)
-                        pseudolabels.append((image.cpu().numpy(), ps_target))
+                        pseudolabels.append((image.cpu(), ps_target))
         
         # rank unlabeled samples by their uncertainty
         unc_ranking = np.argsort(uncertainties)
         first_selection_num = self.budget_num * len(self.criterion_list)
         # select the most uncertain samples
         to_be_added = list(np.array(unlabeled_set)[unc_ranking][:first_selection_num])
-                
+        pseudo_candidates = unc_ranking[first_selection_num:]
+
         # if a secondary selection is needed
         if self.secondary_criterion is not None:
             selected_features = np.array(features)[unc_ranking][:first_selection_num]
@@ -83,9 +84,8 @@ class ActiveLearningHelper:
         # reorder pseudolabels 
         # since we only pseudolabel those remaining samples w/o groundtruth
         if self.include_pseudolabels:
-            pseudo_set = unlabeled_set
-            pseudolabels = [pseudolabels[i] for i in pseudo_set]
-            pseudoflags = [pseudoflags[i] for i in pseudo_set]
+            pseudolabels = [pseudolabels[i] for i in pseudo_candidates]
+            pseudoflags = [pseudoflags[i] for i in pseudo_candidates]
 
         return labeled_set, unlabeled_set, pseudolabels, pseudoflags
                     
