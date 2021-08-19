@@ -35,7 +35,7 @@ def load_labeled_unlabeled(config, cycle):
     return data['labeled_set'], data['unlabeled_set']
 
 def get_train_data_loader(config, logger, labeled_set, train_dataset, pseudo_dataset=None):
-    logger.info('Current train dataset size: {}'.format(len(train_dataset)))
+    logger.info('Current train dataset size: {}'.format(len(labeled_set)))
     if pseudo_dataset is None or len(pseudo_dataset) == 0: 
         train_sampler = SubsetRandomSampler(labeled_set)
     else:
@@ -43,7 +43,6 @@ def get_train_data_loader(config, logger, labeled_set, train_dataset, pseudo_dat
         concat_train_dataset = torch.utils.data.ConcatDataset([train_dataset, pseudo_dataset])
         train_sampler = SubsetRandomSampler(list(set(range(len(train_dataset), len(concat_train_dataset))) | set(labeled_set)))
         train_dataset = concat_train_dataset
-        logger.info('Current train dataset size: {}'.format(len(train_dataset)))
         
     train_batch_sampler = torch.utils.data.BatchSampler(train_sampler, config['batch_size'], drop_last=True)
 
