@@ -48,7 +48,7 @@ def main(config):
         logger.info('Resuming from checkpoint: {} ...'.format(config.resume))
         checkpoint = torch.load(config.resume)
         start_cycle = checkpoint['cycle']+1
-        labeled_set, unlabeled_set = load_labeled_unlabeled(config)
+        labeled_set, unlabeled_set = load_labeled_unlabeled(config, checkpoint['cycle'])
     # or start a new experiment
     else:
         logger.info('Loading base model checkpoint {} ...'.format(get_base_model_path(config)))
