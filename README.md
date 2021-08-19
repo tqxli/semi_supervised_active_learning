@@ -17,7 +17,8 @@ This is a PyTorch implementation for localization-oriented active learning appra
     - [Using config files](#using-config-files)
     - [Resuming from checkpoints](#resuming-from-checkpoints)
     - [Using Multiple GPU](#using-multiple-gpu)
-  - [Acknowledgements](#acknowledgements)
+  - [General Workflow](#general-workflow)
+  - [Acknowlegements](#acknowlegements)
 
 <!-- /code_chunk_output -->
 
@@ -86,7 +87,7 @@ Run ``pip install -r requirements.txt`` if needed.
       └── train_util.py
   ```
 
-## Usage
+## Usage Guideline
 Try `python train.py -c config.json` to run code.
 
 ### Config file format
@@ -198,7 +199,26 @@ Specify indices of available GPUs by cuda environmental variable.
   CUDA_VISIBLE_DEVICES=2,3 python train.py -c config.py
   ```
 
-### Acknowlegements
-This repo is structured based on [PyTorch Template Library](https://github.com/victoresque/pytorch-template), a great, easy-to-use PyTorch template framework. 
+## General Workflow
+You may follow these steps:
+
+1. Train a base model (using ```init_num``` data samples) by running:
+    ```
+    python train_base.py -c config.json
+    ```
+    The base model is used as the common initialization for subsequent different active learning experiments on top of it.
+    All the pretrained base models are saved in ```base_models```.
+
+2. Start the active learning by running:
+    ```
+    python train.py -c config.json
+    ```
+    * If no ```-resume``` is specified, the script automatically loads the corresponding base model (same architecture, dataset, initial training set) from ```base_models```. 
+    * If a specific checkpoint is specified, the model resumes training from the cycle it stops.
+
+    For each AL cycle, ```budget num``` samples will be assigned ground truth labels and added to the training set. 
+
+## Acknowlegements
+This repo is structured based on [PyTorch Template Project](https://github.com/victoresque/pytorch-template), a great, easy-to-use PyTorch template framework. 
 
 Many implementations regarding active learning are adapted from [Consistency-basd Active Learning for Object Detection](https://github.com/we1pingyu/CALD) by we1pingyu.
