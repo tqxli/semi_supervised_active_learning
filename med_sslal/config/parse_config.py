@@ -48,7 +48,7 @@ class ConfigParser:
         }
 
     @classmethod
-    def from_args(cls, args, options=''):
+    def from_args(cls, args, options='', run_id=None):
         """
         Initialize this class from some cli arguments. Used in train, test.
         """
@@ -75,7 +75,7 @@ class ConfigParser:
 
         # parse custom cli options into dictionary
         modification = {opt.target : getattr(args, _get_opt_name(opt.flags)) for opt in options}
-        return cls(config, resume, modification)
+        return cls(config, resume, modification, run_id)
 
     def init_obj(self, name, module, *args, **kwargs):
         """

@@ -29,18 +29,17 @@ def save_labeled_unlabeled(config, cycle, labeled_set, unlabeled_set):
     with open(os.path.join(config.save_dir, 'labeled_unlabeled_cycle{}'.format(cycle)), 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-def get_train_data_loader(config, logger, labeled_set, train_dataset, pseudo_dataset):
+def get_train_data_loader(config, logger, labeled_set, train_dataset, pseudo_dataset=None):
     logger.info('Current train dataset size: {}'.format(len(train_dataset)))
-    if len(pseudo_dataset) >= 0:
+    if pseudo_dataset is None or len(pseudo_dataset) == 0: 
+        train_sampler = SubsetRandomSampler(labeled_set)
+    else:
         logger.info('{} pseudolabeled samples are added.'.format(len(pseudo_dataset)))
         concat_train_dataset = torch.utils.data.ConcatDataset([train_dataset, pseudo_dataset])
         train_sampler = SubsetRandomSampler(list(set(range(len(train_dataset), len(concat_train_dataset))) | set(labeled_set)))
         train_dataset = concat_train_dataset
         logger.info('Current train dataset size: {}'.format(len(train_dataset)))
-    else: 
-        train_sampler = SubsetRandomSampler(labeled_set)
-    
-
+        
     train_batch_sampler = torch.utils.data.BatchSampler(train_sampler, config['batch_size'], drop_last=True)
 
     # Fixed seed for workers for reproducibility (if num_workers > 2)
@@ -53,3 +52,10 @@ def get_train_data_loader(config, logger, labeled_set, train_dataset, pseudo_dat
                                                     num_workers=config['n_workers'], collate_fn=collate_fn)
 
     return train_data_loader
+
+def get_base_model_path(config):
+    path = str(config.save_dir / 'base_models' / '{}_{}_{}_{}'.format(config['arch']['type'], 
+                                                                    config['dataset']['type'], 
+                                                                    config['al_settings']['args']['init_num'],
+                                                                    config['seed']))
+    return path

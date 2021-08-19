@@ -11,7 +11,7 @@ from med_sslal.al import al_helpers
 from med_sslal.config import ConfigParser
 from med_sslal.trainer import Trainer
 
-from med_sslal.utils import prepare_device, setup_random_seed, save_labeled_unlabeled, get_train_data_loader
+from med_sslal.utils import prepare_device, setup_random_seed, save_labeled_unlabeled, get_train_data_loader, get_base_model_path
 
 
 def main(config):
@@ -44,11 +44,26 @@ def main(config):
     if len(device_ids) > 1:
         model = torch.nn.DataParallel(model, device_ids=device_ids)
 
+    # resume from previous checkpoints or start a new experiment from a pretrained base model
+    if config.resume is not None:
+        logger.info('Resuming from checkpoint: {} ...'.format(config.resume))
+        checkpoint = torch.load(config.resume)
+        start_cycle = checkpoint['cycle']
+    # start from scratch
+    else:
+        logger.info('Loading base model checkpoint:')
+        base_model_path = get_base_model_path(config)
+        checkpoint = torch.load(base_model_path)
+        start_cycle = 1
+
+    state_dict = checkpoint['state_dict']
+    model.load_state_dict(state_dict)
+
     # prepare evaluation metrics
     metrics = [getattr(module_metric, met) for met in config['metrics']]
 
     # begin AL
-    for cycle in range(1, config['al_settings']['num_cycles']+1):
+    for cycle in range(start_cycle, config['al_settings']['num_cycles']+1):
         # update labeled/unlabeled distribution using active learning
         labeled_set, unlabeled_set, \
             pseudolabels, pseudoflags = al_helper.update(model, 

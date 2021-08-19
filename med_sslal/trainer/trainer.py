@@ -36,7 +36,7 @@ class Trainer(BaseTrainer):
         #self.log_step = 2*data_loader.batch_size
         self.log_step = 50
 
-        self.train_metrics = MetricTracker('loss', 'lr', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
+        self.train_metrics = MetricTracker('loss', 'lr', writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
 
     def _train_epoch(self, epoch):
@@ -64,7 +64,7 @@ class Trainer(BaseTrainer):
             task_losses = sum(loss for loss in task_loss_dict.values())
             # reduce losses over all GPUs for logging purposes
             task_loss_dict_reduced = reduce_dict(task_loss_dict)
-            task_loss_value = sum(loss for loss in task_loss_dict_reduced.values())
+            task_loss_value = sum(loss for loss in task_loss_dict_reduced.values()).item()
             
             if not math.isfinite(task_loss_value):
                 print("Loss is {}, stopping training".format(task_loss_value))
@@ -85,12 +85,8 @@ class Trainer(BaseTrainer):
             self.train_metrics.update('loss', task_loss_value)
             self.train_metrics.update('lr', self.optimizer.param_groups[0]['lr'])
 
-            # DO NOT compute metrics for rcnns, no detections are returned when in train mode
-            # for met in self.metric_ftns:
-            #     self.train_metrics.update(met.__name__, met(outputs, targets))
-
             if batch_idx % self.log_step == 0:
-                self.logger.debug('Cycle:[{0}] Epoch:[{1}]'.format(self.cycle, epoch)+self._progress(batch_idx), task_loss_value)
+                self.logger.debug('Cycle:[{}] Epoch:[{}] {} Loss: {:.6f}'.format(self.cycle, epoch, self._progress(batch_idx), task_loss_value))
                 # make grid takes an array of 3d tensors and make it 4d
                 #self.writer.add_image('input', make_grid(np.array(images)).cpu(), nrow=8, normalize=True)
 
@@ -135,7 +131,7 @@ class Trainer(BaseTrainer):
         return self.valid_metrics.result()
 
     def _progress(self, batch_idx):
-        base = '[{}/{} ({:.0f}%)]'
+        base = '[{}/{} ({:.0f%})]'
         if hasattr(self.data_loader, 'n_samples'):
             current = batch_idx * self.data_loader.batch_size
             total = self.data_loader.n_samples
@@ -205,3 +201,33 @@ class Trainer(BaseTrainer):
             self.optimizer.load_state_dict(checkpoint['optimizer'])
 
         self.logger.info("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
+
+class BaseModelTrainer(Trainer):
+    def _save_checkpoint(self, epoch, save_best=False):
+        """
+        Saving checkpoints
+
+        :param epoch: current epoch number
+        :param log: logging information of the epoch
+        :param save_best: if True, rename the saved checkpoint to 'model_best.pth'
+        """
+        arch = type(self.model).__name__
+        state = {
+            'arch': arch,
+            'epoch': epoch,
+            'cycle': self.cycle,
+            'state_dict': self.model.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'monitor_best': self.mnt_best,
+            'config': self.config
+        }
+        filename = str(self.checkpoint_dir / '{}_{}_{}_{}'.format(self.config['arch']['type'], 
+                                                                  self.config['dataset']['type'], 
+                                                                  self.config['al_settings']['args']['init_num'],
+                                                                  self.config['seed']))
+        torch.save(state, filename)
+        self.logger.info("Saving checkpoint: {} ...".format(filename))
+        if save_best:
+            best_path = str(self.checkpoint_dir / 'model_cycle{}_best.pth'.format(self.cycle))
+            torch.save(state, best_path)
+            self.logger.info("Saving cycle{} current best: model_best.pth ...".format(self.cycle)) 
