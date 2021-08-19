@@ -49,6 +49,7 @@ def main(config):
         checkpoint = torch.load(config.resume)
         start_cycle = checkpoint['cycle']+1
         labeled_set, unlabeled_set = load_labeled_unlabeled(config, checkpoint['cycle'])
+        save_labeled_unlabeled(config, checkpoint['cycle'], labeled_set, unlabeled_set) 
     # or start a new experiment
     else:
         logger.info('Loading base model checkpoint {} ...'.format(get_base_model_path(config)))
@@ -57,7 +58,7 @@ def main(config):
         start_cycle = 1    
         labeled_set, unlabeled_set = al_helper._split_labeled_unlabeled(len(train_dataset))
         save_labeled_unlabeled(config, 0, labeled_set, unlabeled_set)
-
+        
     state_dict = checkpoint['state_dict']
     model.load_state_dict(state_dict)
 
