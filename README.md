@@ -199,6 +199,20 @@ Specify indices of available GPUs by cuda environmental variable.
   CUDA_VISIBLE_DEVICES=2,3 python train.py -c config.py
   ```
 
+### What is contained in ```train.py```
+You might find it useful, regarding how is the active learning process handled during training:
+
+* Set up random seed for future experiment reproducibility and train/val/test split (if there's no official split for your dataset).
+* Get logger, datasets, dataloaders.
+* Get an AL helper. 
+    * This is the class which oversees the AL process, performs active sample selection using the specified criterion/criteria and generates pseudolabels.
+* Get your model and load it with the right checkpoint. 
+* Get evaluation metrics.
+* Dive into the AL loop:
+    * AL works by adding labeled samples into the training set in an incremental manner. The number of cycles is controlled by ```num_cycles``` specified in config.
+    * During each AL cycle, ```budget num``` samples will be assigned ground truth labels and added to the training set. The **AL helper** will determine what samples in the unlabeled set will be assigned labels. 
+    * Once have the updated training set, the **Trainer** handles the subsequent training and saves corresponding checkpoint for each cycle.
+
 ## General Workflow
 You may follow these steps:
 
@@ -216,7 +230,6 @@ You may follow these steps:
     * If no ```-resume``` is specified, the script automatically loads the corresponding base model (same architecture, dataset, initial training set) from ```base_models```. 
     * If a specific checkpoint is specified, the model resumes training from the cycle it stops.
 
-    For each AL cycle, ```budget num``` samples will be assigned ground truth labels and added to the training set. 
 
 ## Acknowlegements
 This repo is structured based on [PyTorch Template Project](https://github.com/victoresque/pytorch-template), a great, easy-to-use PyTorch template framework. 
