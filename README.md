@@ -12,11 +12,12 @@ This is a PyTorch implementation for localization-oriented active learning appra
 - [A PyTorch Semi-Supervised Active Learning Framework for Object Detection](#a-pytorch-semi-supervised-active-learning-framework-for-object-detection)
   - [Requirements](#requirements)
   - [Script Structure](#script-structure)
-  - [Usage](#usage)
+  - [Usage Guideline](#usage-guideline)
     - [Config file format](#config-file-format)
     - [Using config files](#using-config-files)
     - [Resuming from checkpoints](#resuming-from-checkpoints)
     - [Using Multiple GPU](#using-multiple-gpu)
+    - [What is contained in ```train.py```](#what-is-contained-in-trainpy)
   - [General Workflow](#general-workflow)
   - [Acknowlegements](#acknowlegements)
 
@@ -27,7 +28,7 @@ This is a PyTorch implementation for localization-oriented active learning appra
 * PyTorch >= 0.4 (1.2 recommended)
 * tqdm (Optional for `test.py`)
 * tensorboard >= 1.14 (see [Tensorboard Visualization](#tensorboard-visualization))
-* albumentation (latest version from the master branch on GitHub)
+* albumentations (latest version from the master branch on GitHub)
 
 Run ``pip install -r requirements.txt`` if needed.
 
@@ -171,7 +172,7 @@ Config files are in `.json` format:
 }
 ```
 
-Add addional configurations if you need.
+Add additional configurations if you need.
 
 ### Using config files
 Modify the configurations in `.json` config files, then run:
@@ -231,7 +232,7 @@ You may follow these steps:
     * If a specific checkpoint is specified, the model resumes training from the cycle it stops.
 
 
-## Acknowlegements
+## Acknowledgments
 This repo is structured based on [PyTorch Template Project](https://github.com/victoresque/pytorch-template), a great, easy-to-use PyTorch template framework. 
 
 Many implementations regarding active learning are adapted from [Consistency-basd Active Learning for Object Detection](https://github.com/we1pingyu/CALD) by we1pingyu.
